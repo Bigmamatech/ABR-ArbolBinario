@@ -1,577 +1,645 @@
 #include <iostream>
 #include <string>
-#include <cstdlib>
+#include <vector>
+#include <map>
 #include <queue>
+#include <stack>
+#include <algorithm>
+#include <sstream>
+#include <cstdlib>
+#include <cstring>
 using namespace std;
 
-struct Nodo {
+struct Persona {
     int id;
     string nombre;
-    int anioReinado;    // anioReinado
-    string cargo;       // cargo
-    Nodo *izq;
-    Nodo *der;
+    int anioNacimiento;  // Cambiado a solo año
+    Persona* padre;
+    Persona* madre;
+    vector<Persona*> hijos;
+    
+    Persona(int id, string nombre, int anio) {  // Cambiado parámetro
+        this->id = id;
+        this->nombre = nombre;
+        this->anioNacimiento = anio;  // Solo año
+        this->padre = NULL;
+        this->madre = NULL;
+    }
+    
+    void agregarHijo(Persona* hijo) {
+        hijos.push_back(hijo);
+    }
 };
 
-Nodo *arbol = NULL;
-
-// Prototipos de funciones
-Nodo *crearNodo(int id, string nombre, int anioReinado, string cargo);
-void insertarNodo(Nodo *&arbol, int id, string nombre, int anioReinado, string cargo);
-void mostrarArbol(Nodo *arbol, int contador);
-Nodo *buscarMiembro(Nodo *arbol, int id);
-Nodo *buscarPorNombre(Nodo *arbol, string nombre);
-void mostrarAscendentes(Nodo *arbol, int id);
-void mostrarDescendientes(Nodo *nodo);
-int contarDescendientes(Nodo *nodo);
-int contarGeneraciones(Nodo *nodo);
-Nodo *gobernanteMasAntiguo(Nodo *arbol); 
-Nodo *eliminarNodo(Nodo *arbol, int id);
-void recorridoInorden(Nodo *arbol);
-void recorridoPreorden(Nodo *arbol);
-void recorridoPostorden(Nodo *arbol);
-void recorridoPorNiveles(Nodo *arbol);
-void mostrarPorGeneracion(Nodo *arbol, int generacionActual, int generacionBuscada);
-void mostrarLinajeReal(Nodo *arbol);  // Nueva función específica
-void menu();
-
-// Función principal
-int main() {
-    system("cls");
-    cout << "=====================================================\n";
-    cout << "   SISTEMA DE ARBOL GENEALOGICO DEL TAWANTINSUYO\n";
-    cout << "          (Imperio Inca - Siglos XII-XVI)\n";
-    cout << "=====================================================\n";
-    menu();
-    return 0;
-}
-
-// Crear nuevo nodo 
-Nodo *crearNodo(int id, string nombre, int anioReinado, string cargo) {
-    Nodo *nuevoNodo = new Nodo();
-    nuevoNodo->id = id;
-    nuevoNodo->nombre = nombre;
-    nuevoNodo->anioReinado = anioReinado;
-    nuevoNodo->cargo = cargo;
-    nuevoNodo->izq = NULL;
-    nuevoNodo->der = NULL;
-    return nuevoNodo;
-}
-
-// Insertar nodo en Arbol
-void insertarNodo(Nodo *&arbol, int id, string nombre, int anioReinado, string cargo) {
-    if (arbol == NULL) {
-        arbol = crearNodo(id, nombre, anioReinado, cargo);
-        cout << "\n* " << cargo << " '" << nombre << "' agregado al linaje.\n";
-    } else {
-        if (id < arbol->id) {
-            insertarNodo(arbol->izq, id, nombre, anioReinado, cargo);
-        } else if (id > arbol->id) {
-            insertarNodo(arbol->der, id, nombre, anioReinado, cargo);
-        } else {
-            cout << "\n Error: ID " << id << " ya existe. Use un ID unico.\n";
-        }
+struct NodoABB {
+    Persona* persona;
+    NodoABB* izquierdo;
+    NodoABB* derecho;
+    int altura;
+    
+    NodoABB(Persona* p) {
+        persona = p;
+        izquierdo = NULL;
+        derecho = NULL;
+        altura = 1;
     }
-}
+};
 
-// Mostrar árbol de forma jerárquica
-void mostrarArbol(Nodo *arbol, int contador) {
-    if (arbol == NULL) {
-        return;
-    }
-    mostrarArbol(arbol->der, contador + 1);
+class ArbolGenealogicoABB {
+private:
+    NodoABB* raiz;
+    map<int, Persona*> registro;
+    map<int, bool> yaMostradas;
     
-    for (int i = 0; i < contador; i++) {
-        cout << "    ";
-    }
-    cout << "[" << arbol->id << "] " << arbol->nombre << " (" << arbol->cargo << ")\n";
-    
-    mostrarArbol(arbol->izq, contador + 1);
-}
-
-// Búsqueda por ID
-Nodo *buscarMiembro(Nodo *arbol, int id) {
-    if (arbol == NULL) {
-        return NULL;
-    } else if (arbol->id == id) {
-        return arbol;
-    } else if (id < arbol->id) {
-        return buscarMiembro(arbol->izq, id);
-    } else {
-        return buscarMiembro(arbol->der, id);
-    }
-}
-
-// Búsqueda por nombre
-Nodo *buscarPorNombre(Nodo *arbol, string nombre) {
-    if (arbol == NULL) return NULL;
-    
-    if (arbol->nombre == nombre) return arbol;
-    
-    Nodo *izq = buscarPorNombre(arbol->izq, nombre);
-    if (izq != NULL) return izq;
-    
-    return buscarPorNombre(arbol->der, nombre);
-}
-
-// Mostrar ascendentes (adaptado para linaje real)
-void mostrarAscendentes(Nodo *arbol, int id) {
-    if (arbol == NULL) return;
-    
-    if (arbol->id == id) {
-        cout << "  • " << arbol->nombre << " (ACTUAL) - " << arbol->cargo << endl;
-        return;
+    int obtenerAltura(NodoABB* nodo) {
+        if (nodo == NULL) return 0;
+        return nodo->altura;
     }
     
-    if (id < arbol->id) {
-        mostrarAscendentes(arbol->izq, id);
-        if (arbol->id != id) {
-            cout << "  • " << arbol->nombre << " - " << arbol->cargo 
-                 << " (Reinó: " << arbol->anioReinado << ")" << endl;
-        }
-    } else {
-        mostrarAscendentes(arbol->der, id);
-        if (arbol->id != id) {
-            cout << "  • " << arbol->nombre << " - " << arbol->cargo 
-                 << " (Reinó: " << arbol->anioReinado << ")" << endl;
-        }
-    }
-}
-
-// Mostrar descendientes directos
-void mostrarDescendientes(Nodo *nodo) {
-    if (nodo == NULL) return;
-    
-    cout << "  • " << nodo->nombre << " [" << nodo->id << "] - " 
-         << nodo->cargo << " (Reinó: " << nodo->anioReinado << ")" << endl;
-    mostrarDescendientes(nodo->izq);
-    mostrarDescendientes(nodo->der);
-}
-
-// Contar total de descendientes
-int contarDescendientes(Nodo *nodo) {
-    if (nodo == NULL) return 0;
-    return 1 + contarDescendientes(nodo->izq) + contarDescendientes(nodo->der);
-}
-
-// Contar generaciones desde un nodo
-int contarGeneraciones(Nodo *nodo) {
-    if (nodo == NULL) return 0;
-    
-    int izq = contarGeneraciones(nodo->izq);
-    int der = contarGeneraciones(nodo->der);
-    
-    return 1 + max(izq, der);
-}
-
-// Encontrar gobernante más antiguo
-Nodo *gobernanteMasAntiguo(Nodo *arbol) {
-    if (arbol == NULL) return NULL;
-    
-    Nodo *actual = arbol;
-    Nodo *izq = gobernanteMasAntiguo(arbol->izq);
-    Nodo *der = gobernanteMasAntiguo(arbol->der);
-    
-    Nodo *masAntiguo = actual;
-    
-    if (izq != NULL && izq->anioReinado < masAntiguo->anioReinado) {
-        masAntiguo = izq;
-    }
-    if (der != NULL && der->anioReinado < masAntiguo->anioReinado) {
-        masAntiguo = der;
+    int obtenerBalance(NodoABB* nodo) {
+        if (nodo == NULL) return 0;
+        return obtenerAltura(nodo->izquierdo) - obtenerAltura(nodo->derecho);
     }
     
-    return masAntiguo;
-}
-
-// Eliminar nodo
-Nodo *eliminarNodo(Nodo *arbol, int id) {
-    if (arbol == NULL) {
-        cout << "\n✗ Miembro no encontrado.\n";
-        return arbol;
-    }
-    
-    if (id < arbol->id) {
-        arbol->izq = eliminarNodo(arbol->izq, id);
-    } else if (id > arbol->id) {
-        arbol->der = eliminarNodo(arbol->der, id);
-    } else {
-        cout << "\n✓ Gobernante '" << arbol->nombre << "' eliminado del registro.\n";
+    NodoABB* rotacionDerecha(NodoABB* y) {
+        NodoABB* x = y->izquierdo;
+        NodoABB* T2 = x->derecho;
         
-        if (arbol->izq == NULL) {
-            Nodo *temp = arbol->der;
-            delete arbol;
-            return temp;
-        } else if (arbol->der == NULL) {
-            Nodo *temp = arbol->izq;
-            delete arbol;
-            return temp;
+        x->derecho = y;
+        y->izquierdo = T2;
+        
+        y->altura = max(obtenerAltura(y->izquierdo), obtenerAltura(y->derecho)) + 1;
+        x->altura = max(obtenerAltura(x->izquierdo), obtenerAltura(x->derecho)) + 1;
+        
+        return x;
+    }
+    
+    NodoABB* rotacionIzquierda(NodoABB* x) {
+        NodoABB* y = x->derecho;
+        NodoABB* T2 = y->izquierdo;
+        
+        y->izquierdo = x;
+        x->derecho = T2;
+        
+        x->altura = max(obtenerAltura(x->izquierdo), obtenerAltura(x->derecho)) + 1;
+        y->altura = max(obtenerAltura(y->izquierdo), obtenerAltura(y->derecho)) + 1;
+        
+        return y;
+    }
+    
+    NodoABB* insertarEnABB(NodoABB* nodo, Persona* persona) {
+        if (nodo == NULL) return new NodoABB(persona);
+        
+        if (persona->id < nodo->persona->id)
+            nodo->izquierdo = insertarEnABB(nodo->izquierdo, persona);
+        else if (persona->id > nodo->persona->id)
+            nodo->derecho = insertarEnABB(nodo->derecho, persona);
+        else
+            return nodo;
+        
+        nodo->altura = 1 + max(obtenerAltura(nodo->izquierdo), obtenerAltura(nodo->derecho));
+        int balance = obtenerBalance(nodo);
+        
+        if (balance > 1 && persona->id < nodo->izquierdo->persona->id)
+            return rotacionDerecha(nodo);
+        
+        if (balance < -1 && persona->id > nodo->derecho->persona->id)
+            return rotacionIzquierda(nodo);
+        
+        if (balance > 1 && persona->id > nodo->izquierdo->persona->id) {
+            nodo->izquierdo = rotacionIzquierda(nodo->izquierdo);
+            return rotacionDerecha(nodo);
         }
         
-        Nodo *sucesor = arbol->der;
-        while (sucesor && sucesor->izq != NULL) {
-            sucesor = sucesor->izq;
+        if (balance < -1 && persona->id < nodo->derecho->persona->id) {
+            nodo->derecho = rotacionDerecha(nodo->derecho);
+            return rotacionIzquierda(nodo);
         }
         
-        arbol->id = sucesor->id;
-        arbol->nombre = sucesor->nombre;
-        arbol->anioReinado = sucesor->anioReinado;
-        arbol->cargo = sucesor->cargo;
-        
-        arbol->der = eliminarNodo(arbol->der, sucesor->id);
+        return nodo;
     }
-    return arbol;
-}
-
-// RECORRIDO INORDEN
-void recorridoInorden(Nodo *arbol) {
-    if (arbol == NULL) return;
     
-    recorridoInorden(arbol->izq);
-    cout << "  • " << arbol->nombre << " [" << arbol->id << "] - " 
-         << arbol->cargo << " (Reinó: " << arbol->anioReinado << ")\n";
-    recorridoInorden(arbol->der);
-}
-
-// RECORRIDO PREORDEN
-void recorridoPreorden(Nodo *arbol) {
-    if (arbol == NULL) return;
-    
-    cout << "  • " << arbol->nombre << " [" << arbol->id << "] - " 
-         << arbol->cargo << " (Reinó: " << arbol->anioReinado << ")\n";
-    recorridoPreorden(arbol->izq);
-    recorridoPreorden(arbol->der);
-}
-
-// RECORRIDO POSTORDEN
-void recorridoPostorden(Nodo *arbol) {
-    if (arbol == NULL) return;
-    
-    recorridoPostorden(arbol->izq);
-    recorridoPostorden(arbol->der);
-    cout << "  • " << arbol->nombre << " [" << arbol->id << "] - " 
-         << arbol->cargo << " (Reinó: " << arbol->anioReinado << ")\n";
-}
-
-// RECORRIDO POR NIVELES
-void recorridoPorNiveles(Nodo *arbol) {
-    if (arbol == NULL) return;
-    
-    queue<Nodo*> cola;
-    cola.push(arbol);
-    
-    int nivel = 0;
-    while (!cola.empty()) {
-        int nodosEnNivel = cola.size();
-        cout << "\n--- Generacion " << nivel << " ---\n";
+    Persona* buscarEnABB(NodoABB* nodo, int id) {
+        if (nodo == NULL) return NULL;
         
-        for (int i = 0; i < nodosEnNivel; i++) {
-            Nodo *actual = cola.front();
+        if (id < nodo->persona->id)
+            return buscarEnABB(nodo->izquierdo, id);
+        else if (id > nodo->persona->id)
+            return buscarEnABB(nodo->derecho, id);
+        else
+            return nodo->persona;
+    }
+    
+    void limpiarArbol(NodoABB* nodo) {
+        if (nodo == NULL) return;
+        limpiarArbol(nodo->izquierdo);
+        limpiarArbol(nodo->derecho);
+        delete nodo->persona;
+        delete nodo;
+    }
+    
+    void mostrarPersona(Persona* p, int nivel) {
+        if (p == NULL) return;
+        
+        string indent(nivel * 4, ' ');
+        cout << indent << "+-- " << p->nombre 
+             << " (ID: " << p->id 
+             << ", Nac: " << p->anioNacimiento << ")";  // Cambiado para mostrar solo año
+        
+        if (p->padre != NULL || p->madre != NULL) {
+            cout << " [";
+            if (p->padre != NULL) cout << "Padre: " << p->padre->nombre;
+            if (p->padre != NULL && p->madre != NULL) cout << ", ";
+            if (p->madre != NULL) cout << "Madre: " << p->madre->nombre;
+            cout << "]";
+        }
+        cout << endl;
+    }
+    
+    void mostrarArbolRecursivo(Persona* persona, int nivel) {
+        if (persona == NULL) return;
+        
+        if (yaMostradas.find(persona->id) != yaMostradas.end()) {
+            string indent(nivel * 4, ' ');
+            cout << indent << "+-- [Ya mostrado: " << persona->nombre << "]" << endl;
+            return;
+        }
+        
+        yaMostradas[persona->id] = true;
+        mostrarPersona(persona, nivel);
+        
+        if (persona->padre != NULL) {
+            mostrarArbolRecursivo(persona->padre, nivel + 1);
+        }
+        
+        if (persona->madre != NULL) {
+            mostrarArbolRecursivo(persona->madre, nivel + 1);
+        }
+        
+        for (int i = 0; i < persona->hijos.size(); i++) {
+            mostrarArbolRecursivo(persona->hijos[i], nivel + 1);
+        }
+    }
+    
+    void mostrarAscendencia(Persona* persona, int nivel) {
+        if (persona == NULL) return;
+        
+        mostrarPersona(persona, nivel);
+        
+        if (persona->padre != NULL) {
+            cout << string((nivel+1) * 4, ' ') << "¦" << endl;
+            cout << string((nivel+1) * 4, ' ') << "+-- Línea PATERNA:" << endl;
+            mostrarAscendencia(persona->padre, nivel + 2);
+        }
+        
+        if (persona->madre != NULL) {
+            cout << string((nivel+1) * 4, ' ') << "¦" << endl;
+            cout << string((nivel+1) * 4, ' ') << "+-- Línea MATERNA:" << endl;
+            mostrarAscendencia(persona->madre, nivel + 2);
+        }
+    }
+    
+public:
+    ArbolGenealogicoABB() {
+        raiz = NULL;
+    }
+    
+    ~ArbolGenealogicoABB() {
+        limpiarArbol(raiz);
+        registro.clear();
+    }
+    
+    bool insertarPersona(int id, string nombre, int anio,  // Cambiado parámetro
+                        int idPadre = -1, int idMadre = -1) {
+        if (registro.find(id) != registro.end()) {
+            cout << "Error: El ID " << id << " ya existe!\n";
+            return false;
+        }
+        
+        Persona* nuevaPersona = new Persona(id, nombre, anio);  // Solo año
+        
+        if (idPadre != -1) {
+            map<int, Persona*>::iterator itPadre = registro.find(idPadre);
+            if (itPadre != registro.end()) {
+                nuevaPersona->padre = itPadre->second;
+                itPadre->second->agregarHijo(nuevaPersona);
+            } else {
+                cout << "Advertencia: Padre con ID " << idPadre << " no encontrado. Se insertará sin padre.\n";
+            }
+        }
+        
+        if (idMadre != -1) {
+            map<int, Persona*>::iterator itMadre = registro.find(idMadre);
+            if (itMadre != registro.end()) {
+                nuevaPersona->madre = itMadre->second;
+                itMadre->second->agregarHijo(nuevaPersona);
+            } else {
+                cout << "Advertencia: Madre con ID " << idMadre << " no encontrado. Se insertará sin madre.\n";
+            }
+        }
+        
+        raiz = insertarEnABB(raiz, nuevaPersona);
+        registro[id] = nuevaPersona;
+        
+        return true;
+    }
+    
+    Persona* buscarPersona(int id) {
+        map<int, Persona*>::iterator it = registro.find(id);
+        if (it != registro.end()) {
+            return it->second;
+        }
+        return buscarEnABB(raiz, id);
+    }
+    
+    vector<Persona*> obtenerAncestros(int id) {
+        vector<Persona*> ancestros;
+        Persona* persona = buscarPersona(id);
+        
+        if (persona != NULL) {
+            stack<Persona*> pila;
+            if (persona->padre != NULL) pila.push(persona->padre);
+            if (persona->madre != NULL) pila.push(persona->madre);
+            
+            while (!pila.empty()) {
+                Persona* actual = pila.top();
+                pila.pop();
+                
+                ancestros.push_back(actual);
+                
+                if (actual->padre != NULL) pila.push(actual->padre);
+                if (actual->madre != NULL) pila.push(actual->madre);
+            }
+        }
+        
+        return ancestros;
+    }
+    
+    vector<Persona*> obtenerDescendientes(int id) {
+        vector<Persona*> descendientes;
+        Persona* persona = buscarPersona(id);
+        
+        if (persona != NULL) {
+            queue<Persona*> cola;
+            for (int i = 0; i < persona->hijos.size(); i++) {
+                cola.push(persona->hijos[i]);
+            }
+            
+            while (!cola.empty()) {
+                Persona* actual = cola.front();
+                cola.pop();
+                
+                descendientes.push_back(actual);
+                
+                for (int i = 0; i < actual->hijos.size(); i++) {
+                    cola.push(actual->hijos[i]);
+                }
+            }
+        }
+        
+        return descendientes;
+    }
+    
+    void mostrarArbolCompleto(int id) {
+        Persona* persona = buscarPersona(id);
+        if (persona == NULL) {
+            cout << "Persona no encontrada.\n";
+            return;
+        }
+        
+        cout << "\n=== ÁRBOL GENEALÓGICO COMPLETO ===\n";
+        yaMostradas.clear();
+        mostrarArbolRecursivo(persona, 0);
+        yaMostradas.clear();
+    }
+    
+    void mostrarAscendenciaCompleta(int id) {
+        Persona* persona = buscarPersona(id);
+        if (persona == NULL) {
+            cout << "Persona no encontrada.\n";
+            return;
+        }
+        
+        cout << "\n=== ASCENDENCIA ===\n";
+        mostrarAscendencia(persona, 0);
+    }
+    
+    void mostrarDescendenciaCompleta(int id) {
+        Persona* persona = buscarPersona(id);
+        if (persona == NULL) {
+            cout << "Persona no encontrada.\n";
+            return;
+        }
+        
+        cout << "\n=== DESCENDENCIA ===\n";
+        
+        queue<pair<Persona*, int> > cola;
+        cola.push(make_pair(persona, 0));
+        
+        while (!cola.empty()) {
+            Persona* actual = cola.front().first;
+            int nivel = cola.front().second;
             cola.pop();
             
-            cout << "  • " << actual->nombre << " [" << actual->id << "] - " 
-                 << actual->cargo << " (Reinó: " << actual->anioReinado << ")\n";
+            mostrarPersona(actual, nivel);
             
-            if (actual->izq != NULL) cola.push(actual->izq);
-            if (actual->der != NULL) cola.push(actual->der);
+            for (int i = 0; i < actual->hijos.size(); i++) {
+                cola.push(make_pair(actual->hijos[i], nivel + 1));
+            }
         }
-        nivel++;
-    }
-}
-
-//Mostrar miembros por generación específica
-void mostrarPorGeneracion(Nodo *arbol, int generacionActual, int generacionBuscada) {
-    if (arbol == NULL) return;
-    
-    if (generacionActual == generacionBuscada) {
-        cout << "  • " << arbol->nombre << " [" << arbol->id << "] - " 
-             << arbol->cargo << " (Reinó: " << arbol->anioReinado << ")\n";
-        return;
     }
     
-    mostrarPorGeneracion(arbol->izq, generacionActual + 1, generacionBuscada);
-    mostrarPorGeneracion(arbol->der, generacionActual + 1, generacionBuscada);
-}
+    string determinarRelacion(int id1, int id2) {
+        Persona* p1 = buscarPersona(id1);
+        Persona* p2 = buscarPersona(id2);
+        
+        if (p1 == NULL || p2 == NULL) {
+            return "Una o ambas personas no existen";
+        }
+        
+        if (p1 == p2) {
+            return "Es la misma persona";
+        }
+        
+        vector<Persona*> ancestrosP2 = obtenerAncestros(id2);
+        for (int i = 0; i < ancestrosP2.size(); i++) {
+            if (ancestrosP2[i] == p1) {
+                return p1->nombre + " es ancestro de " + p2->nombre;
+            }
+        }
+        
+        vector<Persona*> ancestrosP1 = obtenerAncestros(id1);
+        for (int i = 0; i < ancestrosP1.size(); i++) {
+            if (ancestrosP1[i] == p2) {
+                return p2->nombre + " es ancestro de " + p1->nombre;
+            }
+        }
+        
+        vector<Persona*> todosP1 = ancestrosP1;
+        todosP1.push_back(p1);
+        vector<Persona*> todosP2 = ancestrosP2;
+        todosP2.push_back(p2);
+        
+        Persona* ancestroComun = NULL;
+        for (int i = 0; i < todosP1.size(); i++) {
+            for (int j = 0; j < todosP2.size(); j++) {
+                if (todosP1[i] == todosP2[j]) {
+                    ancestroComun = todosP1[i];
+                    break;
+                }
+            }
+            if (ancestroComun != NULL) break;
+        }
+        
+        if (ancestroComun == NULL) {
+            return "No hay relación familiar directa";
+        }
+        
+        int dist1 = 0, dist2 = 0;
+        Persona* temp = p1;
+        
+        while (temp != NULL && temp != ancestroComun) {
+            dist1++;
+            if (temp->padre != NULL && 
+                find(ancestrosP1.begin(), ancestrosP1.end(), temp->padre) != ancestrosP1.end()) {
+                temp = temp->padre;
+            }
+            else if (temp->madre != NULL) {
+                temp = temp->madre;
+            }
+            else {
+                break;
+            }
+        }
+        
+        temp = p2;
+        while (temp != NULL && temp != ancestroComun) {
+            dist2++;
+            if (temp->padre != NULL && 
+                find(ancestrosP2.begin(), ancestrosP2.end(), temp->padre) != ancestrosP2.end()) {
+                temp = temp->padre;
+            }
+            else if (temp->madre != NULL) {
+                temp = temp->madre;
+            }
+            else {
+                break;
+            }
+        }
+        
+        if (dist1 == 1 && dist2 == 1) {
+            return p1->nombre + " y " + p2->nombre + " son hermanos";
+        }
+        else if (dist1 == 1 && dist2 == 2) {
+            return p1->nombre + " es tío/tía de " + p2->nombre;
+        }
+        else if (dist1 == 2 && dist2 == 1) {
+            return p2->nombre + " es tío/tía de " + p1->nombre;
+        }
+        else if (dist1 == 2 && dist2 == 2) {
+            return p1->nombre + " y " + p2->nombre + " son primos hermanos";
+        }
+        else {
+            stringstream ss;
+            ss << p1->nombre << " y " << p2->nombre 
+               << " están relacionados a través de " << ancestroComun->nombre
+               << " (distancia: " << dist1 << " y " << dist2 << " generaciones)";
+            return ss.str();
+        }
+    }
+    
+    void mostrarEstadisticas() {
+        cout << "\n=== ESTADÍSTICAS ===\n";
+        cout << "Total de personas: " << registro.size() << endl;
+        
+        int conPadre = 0, conMadre = 0, conAmbosPadres = 0, sinHijos = 0;
+        
+        for (map<int, Persona*>::iterator it = registro.begin(); it != registro.end(); ++it) {
+            Persona* p = it->second;
+            if (p->padre != NULL) conPadre++;
+            if (p->madre != NULL) conMadre++;
+            if (p->padre != NULL && p->madre != NULL) conAmbosPadres++;
+            if (p->hijos.empty()) sinHijos++;
+        }
+        
+        cout << "Personas con padre conocido: " << conPadre << endl;
+        cout << "Personas con madre conocida: " << conMadre << endl;
+        cout << "Personas con ambos padres: " << conAmbosPadres << endl;
+        cout << "Personas sin hijos: " << sinHijos << endl;
+        cout << "Personas con hijos: " << (registro.size() - sinHijos) << endl;
+    }
+};
 
-//NUEVA FUNCIÓN: Mostrar linaje real completo en orden histórico
-void mostrarLinajeReal(Nodo *arbol) {
-    if (arbol == NULL) return;
+int main() {
+    system("chcp 65001 > nul");
+    system("cls");
     
-    mostrarLinajeReal(arbol->izq);
-    cout << "  • " << arbol->nombre << " - " << arbol->cargo 
-         << " (Aprox. " << arbol->anioReinado << " d.C.)\n";
-    mostrarLinajeReal(arbol->der);
-}
-
-//MENU PRINCIPAL - Tawantinsuyo
-void menu() {
-    int opcion, id, anio, generacion;
-    string nombre, cargo;
+    ArbolGenealogicoABB arbolGenealogico;
     
-    // ============================================
-    // DATOS HISTÓRICOS DEL TAWANTINSUYO -IMPERIO INCA
-    // ============================================
-    cout << "\nCargando datos historicos del Tawantinsuyo...\n";
+    cout << "===============================================\n";
+    cout << "   SISTEMA DE ÁRBOL GENEALÓGICO CON ABB\n";
+    cout << "   (Solo años para fecha de nacimiento)\n";
+    cout << "===============================================\n\n";
     
-    // Sapa Incas (Gobernantes principales)
-    insertarNodo(arbol, 100, "Manco Cápac", 1200, "Sapa Inca Fundador");
-    insertarNodo(arbol, 50, "Sinchi Roca", 1230, "Sapa Inca");
-    insertarNodo(arbol, 150, "Lloque Yupanqui", 1260, "Sapa Inca");
-    insertarNodo(arbol, 30, "Mayta Cápac", 1290, "Sapa Inca");
-    insertarNodo(arbol, 70, "Cápac Yupanqui", 1320, "Sapa Inca");
-    insertarNodo(arbol, 130, "Inca Roca", 1350, "Sapa Inca");
-    insertarNodo(arbol, 10, "Yáhuar Huácac", 1380, "Sapa Inca");
-    insertarNodo(arbol, 90, "Viracocha Inca", 1410, "Sapa Inca");
-    insertarNodo(arbol, 180, "Pachacútec", 1438, "Sapa Inca (Expansor)");
-    insertarNodo(arbol, 60, "Túpac Inca Yupanqui", 1471, "Sapa Inca");
-    insertarNodo(arbol, 200, "Huayna Cápac", 1493, "Sapa Inca");
-    insertarNodo(arbol, 170, "Huáscar", 1525, "Sapa Inca (Guerra Civil)");
-    insertarNodo(arbol, 220, "Atahualpa", 1532, "Último Sapa Inca");
-    
-    // Coya (Esposas principales) y familia real
-    insertarNodo(arbol, 25, "Mama Ocllo", 1200, "Coya Fundadora");
-    insertarNodo(arbol, 55, "Mama Cora", 1230, "Coya");
-    insertarNodo(arbol, 125, "Mama Cahua", 1350, "Coya");
-    insertarNodo(arbol, 185, "Mama Anahuarque", 1440, "Coya de Pachacútec");
-    
-    // Hijos importantes y nobles
-    insertarNodo(arbol, 210, "Ninan Cuyuchi", 1520, "Príncipe Heredero");
-    insertarNodo(arbol, 140, "Amaru Inca Yupanqui", 1450, "Príncipe");
-    insertarNodo(arbol, 80, "Pahuac Gualpa Mayta", 1325, "Noble Real");
-    
-    // Gobernantes durante la conquista
-    insertarNodo(arbol, 250, "Manco Inca Yupanqui", 1533, "Sapa Inca (Rebelde)");
-    insertarNodo(arbol, 280, "Sayri Túpac", 1545, "Sapa Inca en Vilcabamba");
-    insertarNodo(arbol, 300, "Titu Cusi Yupanqui", 1560, "Sapa Inca en Vilcabamba");
-    insertarNodo(arbol, 320, "Túpac Amaru I", 1571, "Último Inca de Vilcabamba");
-    
-    //cout << " " << contarDescendientes(arbol) << " miembros cargados.\n";
-    //system("pause");
-    
+    int opcion;
     do {
-        system("cls");
-        cout << "============================================================\n";
-        cout << "      SISTEMA DE ARBOL GENEALOGICO DEL TAWANTINSUYO\n";
-        cout << "            Imperio Inca (Siglos XIII-XVI)\n";
-        cout << "============================================================\n";
-        cout << "\nLinaje Real Actual (Estructura Jerárquica):\n";
-        cout << "---------------------------------------------\n";
-        mostrarArbol(arbol, 0);
-        cout << "\n============================================================\n";
-        cout << "MENU PRINCIPAL - ADMINISTRACION DEL LINAGE INCA:\n";
-        cout << "============================================================\n";
-        cout << "\n1.  Agregar nuevo miembro al linaje\n";
-        cout << "2.  Mostrar árbol genealógico jerárquico\n";
-        cout << "3.  Buscar miembro por ID\n";
-        cout << "4.  Buscar miembro por nombre\n";
-        cout << "5.  Mostrar ascendentes (antepasados reales)\n";
-        cout << "6.  Mostrar descendientes (sucesores)\n";
-        cout << "7.  Contar total de descendientes\n";
-        cout << "8.  Encontrar gobernante más antiguo\n";
-        cout << "9.  Eliminar miembro del registro\n";
-        cout << "\n--- CONSULTAS HISTORICAS ---\n";
-        cout << "10. Mostrar linaje en orden histórico (Inorden)\n";
-        cout << "11. Recorrido Preorden (Raíz primero)\n";
-        cout << "12. Recorrido Postorden (Hojas primero)\n";
-        cout << "13. Mostrar por generaciones (Recorrido por niveles)\n";
-        cout << "14. Mostrar miembros por generación específica\n";
-        cout << "15. Mostrar profundidad del linaje (generaciones)\n";
-        cout << "16. Mostrar linaje real completo en orden cronológico\n";
-        cout << "\n0.  Salir del sistema\n";
-        cout << "============================================================\n";
-        cout << "Seleccione una opcion: ";
+        cout << "\n=== MENÚ PRINCIPAL ===\n";
+        cout << "1. Insertar persona\n";
+        cout << "2. Buscar persona\n";
+        cout << "3. Mostrar árbol completo\n";
+        cout << "4. Mostrar ascendencia\n";
+        cout << "5. Mostrar descendencia\n";
+        cout << "6. Mostrar ancestros (lista)\n";
+        cout << "7. Mostrar descendientes (lista)\n";
+        cout << "8. Determinar relación\n";
+        cout << "9. Mostrar estadísticas\n";
+        cout << "0. Salir\n";
+        cout << "Seleccione una opción: ";
         cin >> opcion;
         
-        switch (opcion) {
-            case 1:
-                cout << "\n--- AGREGAR NUEVO MIEMBRO AL LINAJE ---\n";
-                cout << "ID (unico, ej: 400): ";
+        switch(opcion) {
+            case 1: {
+                int id, idPadre, idMadre, anio;  // Cambiado a anio
+                string nombre;
+                
+                cout << "ID: ";
                 cin >> id;
                 cout << "Nombre: ";
                 cin.ignore();
                 getline(cin, nombre);
-                cout << "Año aproximado de reinado/nacimiento (ej: 1550): ";
+                cout << "Año de nacimiento (ej: 1990): ";  // Cambiado
                 cin >> anio;
-                cout << "Cargo/Rol (ej: 'Sapa Inca', 'Coya', 'Principe', 'Noble'): ";
-                cin.ignore();
-                getline(cin, cargo);
-                insertarNodo(arbol, id, nombre, anio, cargo);
-                break;
+                cout << "ID del padre (0 si no se conoce): ";  // Cambiado a 0
+                cin >> idPadre;
+                cout << "ID de la madre (0 si no se conoce): ";  // Cambiado a 0
+                cin >> idMadre;
                 
-            case 2:
-                cout << "\n--- ARBOL GENEALOGICO JERARQUICO DEL LINAJE ---\n";
-                mostrarArbol(arbol, 0);
-                break;
+                // Convertir 0 a -1 para el sistema interno
+                if (idPadre == 0) idPadre = -1;
+                if (idMadre == 0) idMadre = -1;
                 
-            case 3:
-                cout << "\n--- BUSCAR POR ID ---\n";
-                cout << "Ingrese ID del miembro: ";
+                if (arbolGenealogico.insertarPersona(id, nombre, anio, idPadre, idMadre)) {
+                    cout << "Persona insertada correctamente.\n";
+                }
+                break;
+            }
+            
+            case 2: {
+                int id;
+                cout << "ID a buscar: ";
                 cin >> id;
-                {
-                    Nodo *encontrado = buscarMiembro(arbol, id);
-                    if (encontrado != NULL) {
-                        cout << "\n✓ MIEMBRO DEL LINAJE ENCONTRADO:\n";
-                        cout << "  Nombre: " << encontrado->nombre << endl;
-                        cout << "  ID: " << encontrado->id << endl;
-                        cout << "  Año de reinado: " << encontrado->anioReinado << " d.C.\n";
-                        cout << "  Cargo: " << encontrado->cargo << endl;
-                    } else {
-                        cout << "\n✗ Miembro no encontrado en el linaje.\n";
-                    }
+                
+                Persona* p = arbolGenealogico.buscarPersona(id);
+                if (p != NULL) {
+                    cout << "\nPERSONA ENCONTRADA:\n";
+                    cout << "Nombre: " << p->nombre << endl;
+                    cout << "ID: " << p->id << endl;
+                    cout << "Año de nacimiento: " << p->anioNacimiento << endl;  // Cambiado
+                    cout << "Padre: " << (p->padre ? p->padre->nombre : "Desconocido") << endl;
+                    cout << "Madre: " << (p->madre ? p->madre->nombre : "Desconocido") << endl;
+                    cout << "Hijos: " << p->hijos.size() << endl;
+                } else {
+                    cout << "Persona no encontrada.\n";
                 }
                 break;
-                
-            case 4:
-                cout << "\n--- BUSCAR POR NOMBRE ---\n";
-                cout << "Ingrese nombre del miembro: ";
-                cin.ignore();
-                getline(cin, nombre);
-                {
-                    Nodo *encontrado = buscarPorNombre(arbol, nombre);
-                    if (encontrado != NULL) {
-                        cout << "\n MIEMBRO DEL LINAJE ENCONTRADO:\n";
-                        cout << "  Nombre: " << encontrado->nombre << endl;
-                        cout << "  ID: " << encontrado->id << endl;
-                        cout << "  Año de reinado: " << encontrado->anioReinado << " d.C.\n";
-                        cout << "  Cargo: " << encontrado->cargo << endl;
-                    } else {
-                        cout << "\n✗ Miembro no encontrado en el linaje.\n";
-                    }
-                }
-                break;
-                
-            case 5:
-                cout << "\n--- ASCENDENTES (ANTEPASADOS REALES) ---\n";
-                cout << "Ingrese ID del miembro: ";
+            }
+            
+            case 3: {
+                int id;
+                cout << "ID de la persona central: ";
                 cin >> id;
-                {
-                    Nodo *encontrado = buscarMiembro(arbol, id);
-                    if (encontrado != NULL) {
-                        cout << "\nAscendentes de " << encontrado->nombre << ":\n";
-                        cout << "=================================\n";
-                        mostrarAscendentes(arbol, id);
-                    } else {
-                        cout << "\n Miembro no encontrado.\n";
-                    }
-                }
+                arbolGenealogico.mostrarArbolCompleto(id);
                 break;
-                
-            case 6:
-                cout << "\n--- DESCENDIENTES (SUCESORES) ---\n";
-                cout << "Ingrese ID del miembro: ";
+            }
+            
+            case 4: {
+                int id;
+                cout << "ID de la persona: ";
                 cin >> id;
-                {
-                    Nodo *encontrado = buscarMiembro(arbol, id);
-                    if (encontrado != NULL) {
-                        cout << "\nDescendientes de " << encontrado->nombre << ":\n";
-                        cout << "==================================\n";
-                        cout << "Descendientes directos:\n";
-                        mostrarDescendientes(encontrado->izq);
-                        mostrarDescendientes(encontrado->der);
-                    } else {
-                        cout << "\n Miembro no encontrado.\n";
-                    }
-                }
+                arbolGenealogico.mostrarAscendenciaCompleta(id);
                 break;
-                
-            case 7:
-                cout << "\n--- CONTAR DESCENDIENTES ---\n";
-                cout << "Ingrese ID del miembro: ";
+            }
+            
+            case 5: {
+                int id;
+                cout << "ID de la persona: ";
                 cin >> id;
-                {
-                    Nodo *encontrado = buscarMiembro(arbol, id);
-                    if (encontrado != NULL) {
-                        int total = contarDescendientes(encontrado) - 1;
-                        cout << "\n" << encontrado->nombre << " tiene " << total 
-                             << " descendiente(s) en total.\n";
-                    } else {
-                        cout << "\n Miembro no encontrado.\n";
-                    }
-                }
+                arbolGenealogico.mostrarDescendenciaCompleta(id);
                 break;
-                
-            case 8:
-                {
-                    cout << "\n--- GOBERNANTE MAS ANTIGUO ---\n";
-                    Nodo *antiguo = gobernanteMasAntiguo(arbol);
-                    if (antiguo != NULL) {
-                        cout << "\nEl gobernante más antiguo registrado es:\n";
-                        cout << "  Nombre: " << antiguo->nombre << endl;
-                        cout << "  Año aproximado: " << antiguo->anioReinado << " d.C.\n";
-                        cout << "  Cargo: " << antiguo->cargo << endl;
-                    }
-                }
-                break;
-                
-            case 9:
-                cout << "\n--- ELIMINAR MIEMBRO DEL REGISTRO ---\n";
-                cout << "Ingrese ID del miembro a eliminar: ";
+            }
+            
+            case 6: {
+                int id;
+                cout << "ID de la persona: ";
                 cin >> id;
-                arbol = eliminarNodo(arbol, id);
+                
+                vector<Persona*> ancestros = arbolGenealogico.obtenerAncestros(id);
+                if (!ancestros.empty()) {
+                    cout << "\nANCESTROS:\n";
+                    for (int i = 0; i < ancestros.size(); i++) {
+                        cout << i+1 << ". " << ancestros[i]->nombre 
+                             << " (ID: " << ancestros[i]->id << ")\n";
+                    }
+                } else {
+                    cout << "No se encontraron ancestros.\n";
+                }
                 break;
+            }
+            
+            case 7: {
+                int id;
+                cout << "ID de la persona: ";
+                cin >> id;
                 
-            case 10:
-                cout << "\n--- LINAJE EN ORDEN HISTORICO (INORDEN) ---\n";
-                cout << "(Ordenado por ID ascendente)\n";
-                cout << "=============================================\n";
-                recorridoInorden(arbol);
+                vector<Persona*> descendientes = arbolGenealogico.obtenerDescendientes(id);
+                if (!descendientes.empty()) {
+                    cout << "\nDESCENDIENTES:\n";
+                    for (int i = 0; i < descendientes.size(); i++) {
+                        cout << i+1 << ". " << descendientes[i]->nombre 
+                             << " (ID: " << descendientes[i]->id << ")\n";
+                    }
+                } else {
+                    cout << "No se encontraron descendientes.\n";
+                }
                 break;
+            }
+            
+            case 8: {
+                int id1, id2;
+                cout << "ID primera persona: ";
+                cin >> id1;
+                cout << "ID segunda persona: ";
+                cin >> id2;
                 
-            case 11:
-                cout << "\n--- RECORRIDO PREORDEN ---\n";
-                cout << "(Raíz primero, luego subárboles)\n";
-                recorridoPreorden(arbol);
+                string relacion = arbolGenealogico.determinarRelacion(id1, id2);
+                cout << "\nRELACIÓN: " << relacion << endl;
                 break;
-                
-            case 12:
-                cout << "\n--- RECORRIDO POSTORDEN ---\n";
-                cout << "(Subárboles primero, luego raíz)\n";
-                recorridoPostorden(arbol);
+            }
+            
+            case 9: {
+                arbolGenealogico.mostrarEstadisticas();
                 break;
-                
-            case 13:
-                cout << "\n--- GENERACIONES DEL LINAJE REAL ---\n";
-                cout << "(Recorrido por niveles)\n";
-                recorridoPorNiveles(arbol);
+            }
+            
+            case 0: {
+                cout << "Saliendo...\n";
                 break;
-                
-            case 14:
-                cout << "\n--- MIEMBROS POR GENERACION ESPECIFICA ---\n";
-                cout << "Ingrese número de generación (0 = raíz): ";
-                cin >> generacion;
-                cout << "\nMiembros en generación " << generacion << ":\n";
-                mostrarPorGeneracion(arbol, 0, generacion);
+            }
+            
+            default: {
+                cout << "Opción no válida.\n";
                 break;
-                
-            case 15:
-                cout << "\n--- PROFUNDIDAD DEL LINAJE ---\n";
-                cout << "El linaje real tiene " << contarGeneraciones(arbol) 
-                     << " generación(es) en total.\n";
-                break;
-                
-            case 16:
-                cout << "\n--- LINAJE REAL COMPLETO EN ORDEN CRONOLOGICO ---\n";
-                cout << "===================================================\n";
-                mostrarLinajeReal(arbol);
-                break;
-                
-            case 0:
-                cout << "\n============================================================\n";
-                cout << "  Gracias por usar el Sistema Genealógico del Tawantinsuyo\n";
-                cout << "            ¡Que el Inti ilumine tu camino!\n";
-                cout << "============================================================\n";
-                return;
-                
-            default:
-                cout << "\n Opción inválida. Intente nuevamente.\n";
+            }
         }
         
         if (opcion != 0) {
-            cout << "\n============================================================\n";
-            cout << "Presione Enter para continuar...";
+            cout << "\nPresione Enter para continuar...";
             cin.ignore();
             cin.get();
+            system("cls");
         }
         
     } while (opcion != 0);
+    
+    return 0;
 }
